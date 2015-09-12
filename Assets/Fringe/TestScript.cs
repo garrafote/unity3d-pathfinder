@@ -70,7 +70,6 @@ public class TestScript : MonoBehaviour {
 
             var connections = new List<INode>();
 
-            Debug.Log(x + " " + y);
             if (notLeftEdge) AddNodeIfValid(connections, nodes[x - 1, y]);
             if (notRightEdge) AddNodeIfValid(connections, nodes[x + 1, y]);
             if (notBottomEdge) AddNodeIfValid(connections, nodes[x, y - 1]);
@@ -87,6 +86,15 @@ public class TestScript : MonoBehaviour {
         void AddNodeIfValid(List<INode> list, INode node)
         {
             if (node.Weight < float.MaxValue) list.Add(node);
+        }
+
+        public static float HeuristicManhattan(INode from, INode to)
+        {
+            var nFrom = from as Node;
+            var nTo = to as Node;
+
+            // Manhattan distance on a square grid
+            return Mathf.Abs(nFrom.X - nTo.X) + Mathf.Abs(nFrom.Y - nTo.Y);
         }
     }
 
@@ -122,33 +130,79 @@ public class TestScript : MonoBehaviour {
 
     class AStar : IPathFinder
     {
-        public Queue<INode> frontier = new Queue<INode>();
-        public Dictionary<INode, INode> path = new Dictionary<INode, INode>();
+        public delegate float HeuristicFunc(INode from, INode to);
 
-        public void FindPath(INode startNode, INode endNode)
+        public PriorityQueue<INode> frontier = new PriorityQueue<INode>(100);
+        public Dictionary<INode, INode> mappedNodes = new Dictionary<INode, INode>();
+        public Dictionary<INode, float> mappedNodeCosts = new Dictionary<INode, float>();
+
+        public HeuristicFunc Heuristic { get; set; }
+
+        public AStar(HeuristicFunc heuristic)
         {
+            Heuristic = heuristic;
+        }
 
+        public IEnumerable<INode> FindPath(INode startNode, INode endNode)
+        {
+            var path = new LinkedList<INode>();
+            var currentNode = endNode;
+
+            while (AdvanceFrontier(startNode, endNode, null).MoveNext()) ;
+
+            INode nextNode;
+            while ((nextNode = mappedNodes[currentNode]) != null)
+            {
+                path.AddFirst(nextNode);
+                currentNode = nextNode;
+            }
+
+            foreach (Node n in path)
+            {
+                Debug.Log(n.X + " " + n.Y);
+            }
+
+            return path;
         }
 
         public IEnumerator AdvanceFrontier(INode startNode, INode endNode, System.Func<Coroutine> coroutine = null)
         {
-            frontier.Enqueue(startNode);
-            path.Add(startNode, null);
+            frontier.Enqueue(startNode, 0);
+            mappedNodes.Add(startNode, null);
+            mappedNodeCosts.Add(startNode, 0);
 
             while (frontier.Count > 0)
             {
-                Debug.LogFormat("Frontier cycle {0}", frontier.Count);
                 var current = frontier.Dequeue();
 
                 var @break = false;
-                foreach (var connection in current.Connections)
+                foreach (var connection in current.Value.Connections)
                 {
-                    if (!path.ContainsKey(connection))
+                    var newCost = mappedNodeCosts[current.Value] + connection.Weight;
+                    if (!mappedNodes.ContainsKey(connection) || newCost < mappedNodeCosts[connection])
                     {
-                        frontier.Enqueue(connection);
-
                         // connection came from current
-                        path.Add(connection, current);
+                        if (mappedNodes.ContainsKey(connection))
+                        {
+                            mappedNodes[connection] = current.Value;
+                        }
+                        else
+                        {
+                            mappedNodes.Add(connection, current.Value);
+                        }
+
+                        if (mappedNodeCosts.ContainsKey(connection))
+                        {
+                            mappedNodeCosts[connection] = newCost;
+                        }
+                        else
+                        {
+                            mappedNodeCosts.Add(connection, newCost);
+                        }
+
+
+                        var priority = newCost + Heuristic(endNode, connection);
+                        frontier.Enqueue(new PQNode<INode>(connection), priority);
 
                         if (connection == endNode)
                         {
@@ -159,11 +213,15 @@ public class TestScript : MonoBehaviour {
                     }
                 }
 
-                yield return coroutine();
+                if (coroutine != null)
+                {
+                    yield return coroutine();
+                }
 
                 if (@break) break;
             }
         }
+
     }
 
     #endregion
@@ -177,13 +235,44 @@ public class TestScript : MonoBehaviour {
     {
         gridSpace = transform.Find("GridSpace") as RectTransform;
 
-        var size = 10;
+        var size = 25;
 
         var grid = new Grid2D(size, size);
-        grid[2, 1].Weight = float.MaxValue;
-        grid[2, 2].Weight = float.MaxValue;
-        grid[2, 3].Weight = float.MaxValue;
-        grid[2, 4].Weight = float.MaxValue;
+
+
+        grid[5, 5].Weight = float.MaxValue;
+        grid[5, 6].Weight = float.MaxValue;
+        grid[5, 7].Weight = float.MaxValue;
+        grid[5, 8].Weight = float.MaxValue;
+        grid[5, 9].Weight = float.MaxValue;
+        grid[5, 10].Weight = float.MaxValue;
+        grid[5, 11].Weight = float.MaxValue;
+        grid[5, 12].Weight = float.MaxValue;
+        grid[5, 13].Weight = float.MaxValue;
+        grid[5, 14].Weight = float.MaxValue;
+
+        grid[15, 5].Weight = float.MaxValue;
+        grid[15, 6].Weight = float.MaxValue;
+        grid[15, 7].Weight = float.MaxValue;
+        grid[15, 8].Weight = float.MaxValue;
+        grid[15, 9].Weight = float.MaxValue;
+        grid[15, 10].Weight = float.MaxValue;
+        grid[15, 11].Weight = float.MaxValue;
+        grid[15, 12].Weight = float.MaxValue;
+        grid[15, 13].Weight = float.MaxValue;
+        grid[15, 14].Weight = float.MaxValue;
+
+        grid[5,  15].Weight = float.MaxValue;
+        grid[6,  15].Weight = float.MaxValue;
+        grid[7,  15].Weight = float.MaxValue;
+        grid[8,  15].Weight = float.MaxValue;
+        grid[9,  15].Weight = float.MaxValue;
+        grid[10, 15].Weight = float.MaxValue;
+        grid[11, 15].Weight = float.MaxValue;
+        grid[12, 15].Weight = float.MaxValue;
+        grid[13, 15].Weight = float.MaxValue;
+        grid[14, 15].Weight = float.MaxValue;
+        grid[15, 15].Weight = float.MaxValue;
 
         tiles = new Image[size, size];
 
@@ -220,24 +309,39 @@ public class TestScript : MonoBehaviour {
         }
 
 
-        var search = new AStar();
-        var start = grid[5, 5];
-        var end = grid[8, 2];
+        var search = new AStar(Grid2D.HeuristicManhattan);
+        var start = grid[14, 3];
+        var end = grid[7, 18];
 
         tiles[start.X, start.Y].color = Color.blue + Color.white * .5f;
         tiles[end.X, end.Y].color = Color.yellow + Color.white * .5f;
 
-        StartCoroutine(search.AdvanceFrontier(start, end, () => {
-            foreach (Node node in search.path.Keys)
-                if (node != start && node != end)
-                    tiles[node.X, node.Y].color = Color.red + Color.white * .5f;
+        //StartCoroutine(search.AdvanceFrontier(start, end, () => {
+        //    foreach (Node node in search.mappedNodes.Keys)
+        //        if (node != start && node != end)
+        //            tiles[node.X, node.Y].color = Color.red + Color.white * .5f;
 
-            foreach (Node node in search.frontier)
-                if (node != start && node != end)
-                    tiles[node.X, node.Y].color = Color.green + Color.white * .5f;
+        //    foreach (Node node in search.frontier)
+        //        if (node != start && node != end)
+        //            tiles[node.X, node.Y].color = Color.green + Color.white * .5f;
 
-            return StartCoroutine(WaitKeyDown(KeyCode.None));
-        }));
+        //    return StartCoroutine(WaitKeyDown(KeyCode.None));
+        //}));
+
+        var path = search.FindPath(start, end);
+        foreach (Node node in search.mappedNodes.Keys)
+            if (node != start && node != end)
+                tiles[node.X, node.Y].color = Color.red + Color.white * .5f;
+
+        foreach (Node node in search.frontier)
+            if (node != start && node != end)
+                tiles[node.X, node.Y].color = Color.green + Color.white * .5f;
+
+        foreach (Node node in path)
+            if (node != start && node != end)
+                tiles[node.X, node.Y].color = Color.magenta + Color.white * .5f;
+
+
     }
 
     public IEnumerator WaitKeyDown(KeyCode key)
@@ -246,7 +350,7 @@ public class TestScript : MonoBehaviour {
         {
             yield return new WaitForSeconds(.05f);
         }
-        while (!Input.GetKey(key));
+        while (key != KeyCode.None && !Input.GetKey(key));
 
         Debug.LogFormat("Key {0} pressed", key);
     }
