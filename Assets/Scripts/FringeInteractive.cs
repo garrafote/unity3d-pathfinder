@@ -1,172 +1,219 @@
 ﻿using UnityEngine;
 using System.Collections;
-using PathFinder;
 using PathFinder.Grid2D;
-using UnityEngine.UI;
+using PathFinder;
+using System.Text.RegularExpressions;
+using System.Collections.Generic;
 
 public class FringeInteractive : MonoBehaviour {
-    #region Search API
 
-    #endregion
+    public Sprite tileSprite;
 
-    RectTransform gridSpace;
-    Image[,] tiles;
+    Grid2D grid;
+    SpriteRenderer[,] tiles;
+
+    Fringe fringe;
+
+    int gridSize = 50;
+
+    Node2D start;
+    Node2D end;
+
+    const float DefaultWeight = 1;
+    const float GrassWeight = 2;
+    const float WaterWeight = 4;
+
+    Regex nameRegex = new Regex(@"(?<i>\d+),(?<j>\d+)");
 
     void Awake()
     {
-
-        gridSpace = transform.Find("GridSpace") as RectTransform;
-
-        var size = 25;
-        var grid = new Grid2D(size, size);
-
-        grid[5, 5].Weight = float.MaxValue;
-        grid[5, 6].Weight = float.MaxValue;
-        grid[5, 7].Weight = float.MaxValue;
-        grid[5, 8].Weight = float.MaxValue;
-        grid[5, 9].Weight = float.MaxValue;
-        grid[5, 10].Weight = float.MaxValue;
-        grid[5, 11].Weight = float.MaxValue;
-        grid[5, 12].Weight = float.MaxValue;
-        grid[5, 13].Weight = float.MaxValue;
-        grid[5, 14].Weight = float.MaxValue;
-
-        grid[15, 5].Weight = float.MaxValue;
-        grid[15, 6].Weight = float.MaxValue;
-        grid[15, 7].Weight = float.MaxValue;
-        grid[15, 8].Weight = float.MaxValue;
-        grid[15, 9].Weight = float.MaxValue;
-        grid[15, 10].Weight = float.MaxValue;
-        grid[15, 11].Weight = float.MaxValue;
-        grid[15, 12].Weight = float.MaxValue;
-        grid[15, 13].Weight = float.MaxValue;
-        grid[15, 14].Weight = float.MaxValue;
-
-        grid[5, 15].Weight = float.MaxValue;
-        grid[6, 15].Weight = float.MaxValue;
-        grid[7, 15].Weight = float.MaxValue;
-        grid[8, 15].Weight = float.MaxValue;
-        grid[9, 15].Weight = float.MaxValue;
-        grid[10, 15].Weight = float.MaxValue;
-        grid[11, 15].Weight = float.MaxValue;
-        grid[12, 15].Weight = float.MaxValue;
-        grid[13, 15].Weight = float.MaxValue;
-        grid[14, 15].Weight = float.MaxValue;
-        grid[15, 15].Weight = float.MaxValue;
-
-        //grid[5,  4].Weight = float.MaxValue;
-        //grid[6,  4].Weight = float.MaxValue;
-        //grid[7,  4].Weight = float.MaxValue;
-        //grid[8,  4].Weight = float.MaxValue;
-        //grid[9,  4].Weight = float.MaxValue;
-        //grid[10, 4].Weight = float.MaxValue;
-        //grid[11, 4].Weight = float.MaxValue;
-        //grid[12, 4].Weight = float.MaxValue;
-        //grid[13, 4].Weight = float.MaxValue;
-        //grid[14, 4].Weight = float.MaxValue;
-        //grid[15, 4].Weight = float.MaxValue;
+        tiles = new SpriteRenderer[gridSize, gridSize];
+        grid = new Grid2D(gridSize, gridSize);
+        fringe = new Fringe(Grid2D.HeuristicManhattan2);
+    }
 
 
-        tiles = new Image[size, size];
+    void Start()
+    {
+        CreateSpriteGrid();
+        UpdateSpriteGrid();
 
-        Vector2 anchorMin, anchorMax;
-        for (int i = 0; i < size; i++)
-        {
-            anchorMin.x = ((float)i / size);
-            anchorMax.x = ((float)(i + 1) / size);
+        start = grid[2, 2];
+        end = grid[48, 48];
 
-            for (int j = 0; j < size; j++)
-            {
-                anchorMin.y = ((float)j / size);
-                anchorMax.y = ((float)(j + 1) / size);
-
-                var obj = new GameObject(string.Format("Node [{0},{1}]", i, j));
-                obj.transform.SetParent(gridSpace);
-
-                var trans = obj.AddComponent<RectTransform>();
-                trans.anchorMin = anchorMin;
-                trans.anchorMax = anchorMax;
-                trans.offsetMax = Vector2.zero;
-                trans.offsetMin = Vector2.zero;
-                trans.localScale = Vector3.one;
-
-                var image = obj.AddComponent<Image>();
-                image.color = (Color.blue * anchorMax.x + Color.red * (1 - anchorMax.x)) * anchorMax.y +
-                              (Color.yellow * anchorMax.x + Color.green * (1 - anchorMax.x)) * (1 - anchorMax.y);
-
-                var c = 1f / (grid[i, j].Weight);
-                image.color = new Color(c, c, c, 1);
-
-                tiles[i, j] = image;
-            }
-        }
-
-
-        var search = new Fringe(Grid2D.HeuristicManhattan2);
-        var start = grid[14, 5];
-        var end = grid[7, 24];
-
-        tiles[start.X, start.Y].color = Color.blue + Color.white * .5f;
-        tiles[end.X, end.Y].color = Color.yellow + Color.white * .5f;
-
-        //StartCoroutine(search.AdvanceFrontier(start, end, () => {
-        //    foreach (Node node in search.mappedNodes.Keys)
+        //StartCoroutine(fringe.FindInteractive(start, end, () =>
+        //{
+        //    foreach (Node2D node in fringe.cache.Keys)
         //        if (node != start && node != end)
         //            tiles[node.X, node.Y].color = Color.red + Color.white * .5f;
 
-        //    foreach (Node node in search.frontier)
+        //    foreach (Node2D node in fringe.fringe)
         //        if (node != start && node != end)
         //            tiles[node.X, node.Y].color = Color.green + Color.white * .5f;
+
+        //    foreach (Node2D node in fringe.pathInteractive)
+        //        if (node != start && node != end)
+        //            tiles[node.X, node.Y].color = Color.magenta + Color.white * .5f;
 
         //    return StartCoroutine(WaitKeyDown(KeyCode.None));
         //}));
 
-        //// astar
-        //var path = search.FindPath(start, end);
-        //foreach (Node node in search.mappedNodes.Keys)
-        //    if (node != start && node != end)
-        //        tiles[node.X, node.Y].color = Color.red + Color.white * .5f;
+        path = fringe.FindPath(start, end);
 
-        //foreach (Node node in search.frontier)
-        //    if (node != start && node != end)
-        //        tiles[node.X, node.Y].color = Color.green + Color.white * .5f;
-
-        //foreach (Node node in path)
-        //    if (node != start && node != end)
-        //        tiles[node.X, node.Y].color = Color.magenta + Color.white * .5f;
-
-        // fringe
-        //var path = search.FindPath(start, end);
-        //foreach (Node node in search.cache.Keys)
-        //    if (node != start && node != end)
-        //        tiles[node.X, node.Y].color = Color.red + Color.white * .5f;
-
-        //foreach (Node node in search.fringe)
-        //    if (node != start && node != end)
-        //        tiles[node.X, node.Y].color = Color.green + Color.white * .5f;
-
-        //foreach (Node node in path)
-        //    if (node != start && node != end)
-        //        tiles[node.X, node.Y].color = Color.magenta + Color.white * .5f;
-
-        StartCoroutine(search.FindInteractive(start, end, () =>
+        foreach (Node2D node in path)
         {
-            foreach (Node2D node in search.cache.Keys)
-                if (node != start && node != end)
-                    tiles[node.X, node.Y].color = Color.red + Color.white * .5f;
+            tiles[node.X, node.Y].color = Color.magenta + Color.white * .5f;
+        }
+        
+    }
 
-            foreach (Node2D node in search.fringe)
-                if (node != start && node != end)
-                    tiles[node.X, node.Y].color = Color.green + Color.white * .5f;
+    Node2D nodeToCopy;
+    IList<Node2D> dirty = new List<Node2D>();
+    private IEnumerable<INode> path;
 
-            foreach (Node2D node in search.pathInteractive)
-                if (node != start && node != end)
-                    tiles[node.X, node.Y].color = Color.magenta + Color.white * .5f;
+    void Update()
+    {
+        dirty.Clear();
 
-            return StartCoroutine(WaitKeyDown(KeyCode.None));
-        }));
+        RaycastHit hitInfo;
+        if (Physics.Raycast(Camera.main.ScreenToWorldPoint(Input.mousePosition), Vector3.forward, out hitInfo))
+        {
+            var match = nameRegex.Match(hitInfo.transform.name);
+
+            var i = System.Convert.ToInt32(match.Groups["i"].Value);
+            var j = System.Convert.ToInt32(match.Groups["j"].Value);
+
+            var hoveredNode = grid[i, j];
+
+            if (Input.GetMouseButtonDown(0))
+            {
+                nodeToCopy = hoveredNode;
+            }
+            else if (Input.GetMouseButton(0))
+            {
+                if (hoveredNode.Weight != nodeToCopy.Weight)
+                {
+                    hoveredNode.Weight = nodeToCopy.Weight;
+                    dirty.Add(hoveredNode);
+                } 
+
+            }
+            else if (Input.GetMouseButtonUp(0) && hoveredNode == nodeToCopy)
+            {
+                if (hoveredNode.Weight == float.MaxValue)
+                {
+                    hoveredNode.Weight = WaterWeight;
+                }
+                else if (hoveredNode.Weight == WaterWeight)
+                {
+                    hoveredNode.Weight = GrassWeight;
+                }
+                else if (hoveredNode.Weight == GrassWeight)
+                {
+                    hoveredNode.Weight = DefaultWeight;
+                }
+                else
+                {
+                    hoveredNode.Weight = float.MaxValue;
+                }
+
+                dirty.Add(hoveredNode);
+            } 
+        }
+
+        // repaint
+
+        if (dirty.Count > 0)
+        {
+
+            foreach (Node2D node in path)
+            {
+                tiles[node.X, node.Y].color = GetNodeColor(node);
+            }
+            
+            foreach (var dirtyNode in dirty)
+            {
+                tiles[dirtyNode.X, dirtyNode.Y].color = GetNodeColor(dirtyNode);
+            }
+
+            path = fringe.FindPath(start, end);
+
+            foreach (Node2D node in path)
+            {
+                tiles[node.X, node.Y].color = Color.magenta + Color.white * .5f;
+            }
+        }
+
+        // repaint path
+        
 
 
+
+    }
+
+
+    private void CreateSpriteGrid()
+    {
+        for (int i = 0; i < gridSize; i++)
+        {
+            for (int j = 0; j < gridSize; j++)
+            {
+                var obj = new GameObject(string.Format("Node [{0},{1}]", i, j));
+                obj.transform.SetParent(transform);
+
+                var tile = obj.AddComponent<SpriteRenderer>();
+                tile.sprite = tileSprite;
+                
+                obj.AddComponent<BoxCollider>();
+
+                tiles[i, j] = tile;
+            }
+        }
+    }
+
+
+    private void UpdateSpriteGrid()
+    {
+        var cam = Camera.main;
+
+        var camSize = new Vector2(cam.orthographicSize * Screen.width / Screen.height, cam.orthographicSize) * 2;
+        var tileSize = camSize / gridSize;
+
+        Vector3 pos = new Vector3();
+        pos.z = 10;
+        for (int i = 0; i < gridSize; i++)
+        {
+            pos.x = ((float)(i + .5f) / gridSize);
+
+            for (int j = 0; j < gridSize; j++)
+            {
+                pos.y = ((float)(j + .5f) / gridSize);
+
+                var tile = tiles[i, j];
+                tile.transform.position = cam.ViewportToWorldPoint(pos);
+                tile.transform.localScale = new Vector3(tileSize.x / tile.bounds.size.x, tileSize.y / tile.bounds.size.y, 1);
+            }
+        }
+    }
+
+    public Color GetNodeColor(Node2D node)
+    {
+        if (node.Weight == float.MaxValue)
+        {
+            return Color.black;
+        }
+
+        if (node.Weight == GrassWeight)
+        {
+            return Color.white * .5f + Color.green;
+        }
+
+        if (node.Weight == WaterWeight)
+        {
+            return Color.white * .5f + Color.blue;
+        }
+
+        return Color.white;
     }
 
     public IEnumerator WaitKeyDown(KeyCode key)

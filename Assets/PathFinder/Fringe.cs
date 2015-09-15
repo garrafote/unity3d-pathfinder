@@ -33,6 +33,9 @@ namespace PathFinder
         {
             var path = new LinkedList<INode>();
 
+            fringe.Clear();
+            cache.Clear();
+
             fringe.AddFirst(startNode);
             cache.Add(startNode, new FringeNode());
 
@@ -64,7 +67,7 @@ namespace PathFinder
 
                     foreach (var connection in node.Connections.Reverse())
                     {
-                        var costConn = nodeInfo.cost + connection.Cost;
+                        var costConn = nodeInfo.cost + (connection.Cost * connection.To.Weight);
                         var connNode = connection.To;
 
                         FringeNode connInfo;
@@ -135,7 +138,7 @@ namespace PathFinder
                 for (var linkedNode = fringe.First; linkedNode != null;)
                 {
                     var node = linkedNode.Value;
-                    Debug.Log("node " + node);
+
                     var nodeInfo = cache[node];
                     var fNode = nodeInfo.cost + Heuristic(node, endNode);
 
