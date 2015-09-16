@@ -8,6 +8,9 @@ namespace PathFinder
     public interface IPathFinder
     {
         HeuristicFunc Heuristic { get; }
+        int VisitedNodes { get; }
+
+        float PathCost { get; }
 
         IEnumerable<INode> FindPath(INode startNode, INode endNode);
     }

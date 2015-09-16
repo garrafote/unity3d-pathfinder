@@ -13,6 +13,13 @@ namespace PathFinder
 
         public HeuristicFunc Heuristic { get; set; }
 
+        public int VisitedNodes
+        {
+            get { return mappedNodes.Count; }
+        }
+
+        public float PathCost { get; private set; }
+
         public AStar(HeuristicFunc heuristic)
         {
             Heuristic = heuristic;
@@ -20,16 +27,22 @@ namespace PathFinder
 
         public IEnumerable<INode> FindPath(INode startNode, INode endNode)
         {
+            frontier.Clear();
+            mappedNodeCosts.Clear();
+            mappedNodes.Clear();
+
             var path = new LinkedList<INode>();
             var currentNode = endNode;
 
             AdvanceFrontier(startNode, endNode);
 
-            INode nextNode;
-            while ((nextNode = mappedNodes[currentNode]) != null)
+            PathCost = mappedNodeCosts[endNode];
+
+            var pathNode = endNode;
+            while (pathNode != null)
             {
-                path.AddFirst(nextNode);
-                currentNode = nextNode;
+                path.AddFirst(pathNode);
+                pathNode = mappedNodes[pathNode];
             }
 
             return path;
@@ -50,7 +63,7 @@ namespace PathFinder
                 {
                     var connection = nc.To;
 
-                    var newCost = mappedNodeCosts[current.Value] + connection.Weight;
+                    var newCost = mappedNodeCosts[current.Value] + (nc.Cost * connection.Weight);
                     if (!mappedNodes.ContainsKey(connection) || newCost < mappedNodeCosts[connection])
                     {
                         // connection came from current
@@ -71,7 +84,6 @@ namespace PathFinder
                         {
                             mappedNodeCosts.Add(connection, newCost);
                         }
-
 
                         var priority = newCost + Heuristic(endNode, connection);
                         frontier.Enqueue(new PQNode<INode>(connection), priority);

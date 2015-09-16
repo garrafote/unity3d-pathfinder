@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Policy;
 using UnityEngine;
 
 namespace PathFinder
@@ -23,6 +24,13 @@ namespace PathFinder
         public Dictionary<INode, FringeNode> cache = new Dictionary<INode, FringeNode>();
 
         public HeuristicFunc Heuristic { get; set; }
+
+        public int VisitedNodes
+        {
+            get { return cache.Count; }
+        }
+
+        public float PathCost { get; private set; }
 
         public Fringe(HeuristicFunc heuristic)
         {
@@ -112,6 +120,8 @@ namespace PathFinder
                 return null;
             }
 
+            PathCost = cache[endNode].cost;
+
             var pathNode = endNode;
             while (pathNode != null)
             {
@@ -157,7 +167,7 @@ namespace PathFinder
 
                     foreach (var connection in node.Connections.Reverse())
                     {
-                        var costConn = nodeInfo.cost + connection.Cost;
+                        var costConn = nodeInfo.cost + (connection.Cost * connection.To.Weight);
                         var connNode = connection.To;
 
                         if (coroutine != null)
@@ -200,6 +210,8 @@ namespace PathFinder
 
                 fLimit = fMin;
             }
+
+            PathCost = cache[endNode].cost;
 
             if (coroutine != null)
             {
